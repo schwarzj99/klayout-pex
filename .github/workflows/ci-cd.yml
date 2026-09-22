@@ -227,6 +227,10 @@ jobs:
       run: poetry install --no-interaction
       shell: bash    # NOTE: required for windows poetry calls
 
+    - name: "[🐍] Materialise symlinked PDK files for packaging"
+      run: poetry run python materialise_pdk_symlinks.py
+      shell: bash    # NOTE: required for windows poetry calls
+
     - name: "[🐍] Build wheel and source archives"
       run: poetry build --output dist
       shell: bash    # NOTE: required for windows poetry calls
@@ -239,6 +243,18 @@ jobs:
     - name: "[🐍] Verify wheel contains generation protobuf python modules"
       run: |
         unzip -l dist/*.whl | grep klayout_pex_protobuf | grep _pb2.py
+      shell: bash
+
+    - name: "[🐍] Verify wheel contains the complete PDK rule decks"
+      run: |
+        for d in pdk/*/libs.tech/kpex/rule_decks; do
+          [ -d "$d" ] || continue
+          pdk=$(echo "$d" | cut -d/ -f2)
+          expected=$(git ls-files "$d" | wc -l)
+          actual=$(unzip -l dist/*.whl | grep -c "pdk/$pdk/libs.tech/kpex/rule_decks/")
+          echo "$pdk: $actual in wheel, $expected in checkout"
+          test "$actual" -eq "$expected"
+        done
       shell: bash
 
     - name: "[🐍] Store dist artifact"
